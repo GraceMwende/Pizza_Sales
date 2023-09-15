@@ -1,0 +1,209 @@
+---
+title: "Pizza Order"
+output: html_notebook
+---
+
+
+Import Data
+```{r}
+library (readr)
+df <- read.csv("pizza_sales.csv")
+df
+summary(df)
+```
+Total Revenue
+```{r}
+library(tidyverse)
+Total_rev <- df %>% summarise(Total=sum(total_price)) %>% format(nsmall=2)
+Total_rev
+
+#
+x<-sum(df$total_price)
+x
+```
+Average order value (not correct due to duplicate orders)
+```{r}
+no_orders <-  nrow(df)
+average_order_value <- as.numeric(Total_rev)/no_orders
+average_order_value
+
+#or
+average_order_value2<- mean(df$total_price)
+average_order_value2
+
+
+```
+Average order value for distinct values
+```{r}
+#df$order_id %>% unique() --Gives unique values 
+no_orders2<- n_distinct(df$order_id)
+average_order_value3<- as.numeric(Total_rev)/no_orders2
+average_order_value3
+
+#
+avg_test <- x/no_orders2
+avg_test
+```
+No of pizzas
+```{r}
+sum(df$quantity)
+```
+Total orders
+```{r}
+no_orders2<- n_distinct(df$order_id)
+no_orders2
+```
+Average Pizza
+```{r}
+avg_pizza_per_order <- sum(df$quantity)/no_orders2
+avg_pizza_per_order
+```
+Get day,month and time respectively
+```{r}
+df$day <- str_sub(df$order_date,1,2)
+df$month <- str_sub(df$order_date,4,5)
+df$time <- str_sub(df$order_time,1,2)
+df$weekday <- weekdays(dmy(df$order_date))
+```
+
+Graphs1: Daily Trend for Total orders
+```{r}
+library(DT)
+library(ggplot2)
+daily_orders <- df %>%
+group_by(weekday) %>%
+    distinct(order_id) %>%
+  summarise(count=n())
+datatable(daily_orders)
+
+#Friday has the highest sales 
+ggplot(daily_orders,aes(weekday,count,fill=weekday))+
+  geom_bar(stat="identity") 
+
+#Add labels of data to ggplot
+ggplot(daily_orders,aes(weekday,count,fill=weekday))+
+  geom_bar(stat="identity") +
+  geom_text(aes(label=count),vjust = -0.5)
+
+#Sort days of week
+df$weekday <- factor(df$weekday,levels=c( "Sunday","Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
+ggplot(daily_orders,aes(weekday,count,fill=weekday))+
+  geom_bar(stat="identity") +
+  geom_text(aes(label=count),vjust = -0.5)
+```
+
+Graphs2: Hourly trend for total orders
+```{r}
+hourly_orders <- df %>%
+                group_by(time) %>%
+                distinct(order_id) %>%
+                summarise(Total=n())
+datatable(hourly_orders)
+
+ggplot(hourly_orders,aes(time,Total,fill=Total))+
+        geom_bar(stat = "identity")
+#line chart
+ggplot(hourly_orders,aes(time,Total,group=1))+
+   geom_line(color="blue") 
+```
+Percentage of sales by category
+```{r}
+sales_category <- df %>%
+ group_by(pizza_category) %>%
+  summarise(Total=sum(total_price))  %>%
+  #mutate(ratio=paste0(round((Total/sum(Total) *100),2),"%"))  %>%
+  mutate(ratio=round((Total/sum(Total) *100),2))  %>%
+  #Removed the Total Column
+  select(-Total) 
+datatable(sales_category)
+```
+Pie Chart
+```{r}
+ggplot(sales_category, aes(x = "", y = ratio, fill = factor(pizza_category)))+ #Format colors
+ geom_bar(stat="identity",width=1)+
+  coord_polar(theta = "y",start=0)+
+ scale_fill_manual(values = c("Blue", "Red", "Green", "Orange")) +
+geom_text(aes(label = ratio),
+            position = position_stack(vjust = 0.5))+
+   guides(fill=guide_legend(title="Pizza category"))
+
+  
+```
+```{r}
+
+
+```
+
+percentage of pizza by size
+```{r}
+pizza_sizes <- df %>%
+  group_by(pizza_size) %>%
+  summarise(Total=sum(total_price)) %>%
+  mutate(pct = round(Total/sum(Total)*100,2))
+datatable(pizza_sizes)
+```
+Pizza size piechart
+
+```{r}
+ggplot(pizza_sizes,aes(x="",y=pct,fill=factor(pizza_size)))+
+  geom_bar(stat="identity",width=1)+
+  coord_polar(theta = "y",start=0)+
+scale_fill_manual(values = c("Blue", "Red", "Green", "Orange","yellow")) +
+geom_text(aes(label = pct),
+            position = position_stack(vjust = 0.5))+
+   guides(fill=guide_legend(title="Pizza Size"))
+  
+```
+
+
+Total pizza sold by category
+```{r}
+Total_pizzas<- df %>% group_by(pizza_category) %>%
+  summarise(Total=sum(quantity))
+datatable(Total_pizzas)
+```
+```{r}
+library(highcharter) 
+Total_pizzas %>%
+  hchart(
+    "funnel", hcaes(x = pizza_category, y = Total),
+    name = "Fruit consumption"
+  )
+
+```
+
+
+Top five best sellers by total pizza sold 
+```{r}
+total_piz <- df %>%
+  group_by(pizza_name) %>%
+  summarise(Total_Pizzas_Sold=sum(quantity)) %>%
+  arrange(desc(Total_Pizzas_Sold)) %>%
+  head(5) 
+ 
+datatable(total_piz)
+```
+
+```{r}
+ggplot(total_piz,aes(Total_Pizzas_Sold,pizza_name,fill=Total_Pizzas_Sold)) +
+  geom_bar(stat="identity")+
+ geom_text(aes(label=Total_Pizzas_Sold), vjust=0.25)
+  
+```
+
+Bottom five worst sellers by total pizza sold 
+```{r}
+total_piz_wos <- df %>%
+  group_by(pizza_name) %>%
+  summarise(Total_Pizzas_Sold=sum(quantity)) %>%
+  arrange(Total_Pizzas_Sold) %>%
+  head(5)
+
+datatable(total_piz_wos)
+```
+Graph
+```{r}
+ggplot(total_piz_wos,aes(Total_Pizzas_Sold,pizza_name,fill=Total_Pizzas_Sold))+
+  geom_bar(stat="identity")
+```
+
